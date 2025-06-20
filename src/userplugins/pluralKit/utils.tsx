@@ -10,7 +10,13 @@ import { findByCode } from "@webpack";
 import { ChannelStore, FluxDispatcher, UserStore } from "@webpack/common";
 import { Message } from "discord-types/general";
 
-import pluralKit, { settings } from "./index";
+import { settings } from "./index";
+import {
+    Member,
+    MemberGuildSettings, PKMessage,
+    System,
+    SystemGuildSettings
+} from "./PluralKitApi";
 
 
 // I dont fully understand how to use datastores, if I used anything incorrectly please let me know
@@ -20,6 +26,8 @@ export let authors: Record<string, Author> = {};
 export let localSystemNames: string[] = [];
 export let localSystemJson: string = "";
 export let localSystem: Author[] = [];
+
+export const authorCache = new Map<string, Author>();
 
 export interface Author {
     messageIds: string[];
@@ -34,36 +42,47 @@ export function isPk(msg: Message): boolean {
 }
 
 export function isOwnPkMessage(message: Message): boolean {
-    if (!isPk(message) || ["[]", "{}", undefined].includes(localSystemJson)) return false;
+    if (!isPk(message) || ["[]", "{}", undefined].includes(localSystemJson) || !getAuthorOfMessage(message) || !getAuthorOfMessage(message).member) return false;
+
 
     const authorId = getAuthorOfMessage(message).member.id;
     return (localSystem).some(author => author.member.id === authorId);
 }
 
+// TODO: possibly better to do .replaceAll() instead of .replace() for multiple replacements
 export function replaceTags(content: string, message: Message, localSystemData: string) {
     const author = getAuthorOfMessage(message);
+    if (!author) return "Unknown author";
     const localSystem: Author[] = JSON.parse(localSystemData);
 
-    const systemSettings: SystemGuildSettings = author.systemSettings[ChannelStore.getChannel(message.channel_id).guild_id];
-    const memberSettings: MemberGuildSettings = author.guildSettings[ChannelStore.getChannel(message.channel_id).guild_id];
-    const { system } = author;
+    const { guild_id } = ChannelStore.getChannel(message.channel_id);
+    const systemSettings = author.systemSettings ? author.systemSettings?.get(guild_id) ?? {
+        tag: undefined,
+    } : { tag: undefined };
+    const memberSettings = author.guildSettings ? author.guildSettings?.[guild_id] ?? {
+        display_name: undefined,
+        avatar_url: undefined
+    } : { display_name: undefined, avatar_url: undefined };
+    const { system, member } = author;
 
-    // prioritize guild settings, then system/member settings
-    const { tag } = systemSettings??system;
-    const name = memberSettings.display_name || (author.member.display_name??author.member.name);
-    const avatar = memberSettings ? memberSettings.avatar_url : (author.member.avatar_url ?? author.member.webhook_avatar_url ?? author.system.avatar_url ?? "");
+    const replacements = {
+        "{tag}": systemSettings.tag ?? system.tag ?? "",
+        "{name}": memberSettings.display_name ?? member.display_name ?? member.name ?? "",
+        "{memberid}": member.id ?? "",
+        "{pronouns}": member.pronouns ?? "",
+        "{systemid}": system.id ?? "",
+        "{systemname}": system.name ?? "",
+        "{color}": member.color ?? "ffffff",
+        "{avatar}": memberSettings.avatar_url ?? member.avatar_url ?? member.webhook_avatar_url ?? system.avatar_url ?? "",
+        "{messagecount}": author.messageIds.length.toString(),
+        "{systemmessagecount}": localSystem.reduce((acc, { messageIds }) => acc + messageIds.length, 0).toString()
+    };
 
-    return content
-        .replace(/{tag}/g, tag??"")
-        .replace(/{name}/g, name??"")
-        .replace(/{memberid}/g, author.member.id??"")
-        .replace(/{pronouns}/g, author.member.pronouns??"")
-        .replace(/{systemid}/g, author.system.id??"")
-        .replace(/{systemname}/g, author.system.name??"")
-        .replace(/{color}/g, author.member.color??"ffffff")
-        .replace(/{avatar}/g, avatar??"")
-        .replace(/{messagecount}/g, author.messageIds.length.toString()??"")
-        .replace(/{systemmessagecount}/g, localSystem.map(author => author.messageIds.length).reduce((acc, val) => acc + val).toString());
+    return content.replace(/{tag}|{name}|{memberid}|{pronouns}|{systemid}|{systemname}|{color}|{avatar}|{messagecount}|{systemmessagecount}/g, match => replacements[match]);
+}
+
+function ensureNotNull(partOne: any, partTwo: any, field: string) {
+
 }
 
 export async function loadAuthors() {
@@ -80,18 +99,19 @@ export async function loadData() {
     }
     const localSystem: Author[] = [];
 
-    (await getMembers(system.id)).forEach((member: Member) => {
-        localSystem.push({
+    const members = await getMembers(system.id);
+    await Promise.all(members.map(async (member: Member) => {
+        const author: Author = {
             messageIds: [],
             member,
             system,
             guildSettings: new Map(),
             systemSettings: new Map()
-        });
-    });
+        };
+        localSystem.push(author);
+    }));
 
     settings.store.data = JSON.stringify(localSystem);
-
     await loadAuthors();
 }
 
@@ -118,19 +138,29 @@ export function generateAuthorData(message: Message) {
     return `${message.author.username}##${message.author.avatar}`;
 }
 
-export function getAuthorOfMessage(message: Message) {
+export function getAuthorOfMessage(message: Message): Author {
     const authorData = generateAuthorData(message);
-    let author: Author = authors[authorData]??undefined;
+    if (authorCache.has(authorData)) {
+        return authorCache.get(authorData)??{} as Author;
+    }
 
+    let author: Author = authors[authorData] ?? undefined;
     if (author) {
         author.messageIds.push(message.id);
         authors[authorData] = author;
         DataStore.set(DATASTORE_KEY, authors);
+        authorCache.set(authorData, author);
         return author;
     }
 
     getMessage(message.id).then((msg: PKMessage) => {
-        author = ({ messageIds: [msg.id], member: msg.member as Member, system: msg.system as System, systemSettings: new Map(), guildSettings: new Map() });
+        author = {
+            messageIds: [msg.id],
+            member: msg.member as Member,
+            system: msg.system as System,
+            systemSettings: new Map(),
+            guildSettings: new Map()
+        };
         getMemberGuildSettings(author.member.id, ChannelStore.getChannel(msg.channel).guild_id).then(guildSettings => {
             author.guildSettings?.set(ChannelStore.getChannel(msg.channel).guild_id, guildSettings);
         });
@@ -141,8 +171,83 @@ export function getAuthorOfMessage(message: Message) {
 
         authors[authorData] = author;
         DataStore.set(DATASTORE_KEY, authors);
+        authorCache.set(authorData, author);
     });
 
-    return authors[authorData];
+    return authors[authorData]??{} as Author;
 }
 
+const API_URL = "https://api.pluralkit.me/v2/";
+const API_HEADERS = {
+    "Content-Type": "application/json",
+    "User-Agent": "Scyye Vencord/1.0 (contact @scyye on Discord for any issues)"
+};
+
+const requestQueue: Array<() => Promise<any>> = [];
+let isProcessingQueue = false;
+const REQUEST_DELAY = 1000; // delay in ms (adjust as needed based on your rate limit)
+
+async function processQueue() {
+    if (isProcessingQueue || requestQueue.length === 0) return;
+
+    isProcessingQueue = true;
+
+    while (requestQueue.length > 0) {
+        const requestFunc = requestQueue.shift(); // Get the next request
+        if (requestFunc) {
+            await requestFunc(); // Wait for it to finish
+            await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY)); // Wait for delay
+        }
+    }
+
+    isProcessingQueue = false;
+}
+
+async function request<T>(endpoint: string) {
+    // Create a function that will perform the actual request
+    const requestFunc = async () => {
+        return fetch(API_URL + endpoint, {
+            method: "GET",
+            headers: API_HEADERS,
+        }).then(res => res.json() as T);
+    };
+
+    // Queue the request
+    requestQueue.push(requestFunc);
+
+    // Ensure the queue is processed
+    processQueue();
+
+    // Return a promise that resolves when the request finishes
+    return new Promise<T>((resolve, reject) => {
+        const intervalId = setInterval(() => {
+            if (requestQueue.length === 0) {
+                clearInterval(intervalId);
+            }
+        }, 100); // Check every 100ms if queue is processed
+    });
+}
+
+export async function getSystem(id: string) {
+    return await request<System>(`systems/${id}`);
+}
+
+export async function getMessage(id: string) {
+    return await request<PKMessage>(`messages/${id}`);
+}
+
+export async function getSystemGuildSettings(system: string, guild: string) {
+    return await request<SystemGuildSettings>(`systems/${system}/guilds/${guild}`);
+}
+
+export async function getMembers(system: string) {
+    return await request<Member[]>(`systems/${system}/members`);
+}
+
+export async function getMember(member: string) {
+    return await request<Member>(`members/${member}`);
+}
+
+export async function getMemberGuildSettings(member: string, guild: string) {
+    return await request<MemberGuildSettings>(`members/${member}/guilds/${guild}`);
+}
