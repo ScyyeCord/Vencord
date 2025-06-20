@@ -16,8 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { addPreEditListener } from "@api/MessageEvents";
-import { addButton, removeButton } from "@api/MessagePopover";
+import { addMessagePreEditListener, removeMessagePreEditListener } from "@api/MessageEvents";
+import { addMessagePopoverButton, removeMessagePopoverButton } from "@api/MessagePopover";
 import { definePluginSettings } from "@api/Settings";
 import { DeleteIcon } from "@components/Icons";
 import definePlugin, { OptionType, StartAt } from "@utils/types";
@@ -62,6 +62,11 @@ export const settings = definePluginSettings({
         description: "How to display proxied users (from your system, defaults to displayOther if blank) in chat\n" +
             "{tag}, {name}, {memberId}, {pronouns}, {systemId}, {systemName}, {color}, {avatar}, {messageCount}, {systemMessageCount} are valid variables (All lowercase)",
         default: "",
+    },
+    editMessageChannel: {
+        type: OptionType.STRING,
+        description: "Channel ID to send pk;edit messages to",
+        default: undefined,
     },
     load: {
         type: OptionType.COMPONENT,
@@ -108,10 +113,16 @@ export default definePlugin({
     patches: [
         {
             find: '?"@":"")',
-            replacement: {
-                match: /(?<=onContextMenu:\i,children:).*?\)}/,
-                replace: "$self.renderUsername(arguments[0])}"
-            }
+            replacement: [
+                {
+                    match: /(?<=onContextMenu:\i,children:).*?\)}/,
+                    replace: "$self.renderUsername(arguments[0])}"
+                },
+                {
+                    match: /Vencord.Plugins.plugins\["ShowMeYourName"]\.renderUsername\(arguments\[0]\)/,
+                    replace: "$self.renderUsername(arguments[0])}"
+                }
+            ]
         },
         // make up arrow to edit most recent message work
         // this might conflict with messageLogger, but to be honest, if you're
@@ -130,29 +141,23 @@ export default definePlugin({
 
     renderUsername: ({ author, message, isRepliedMessage, withMentionPrefix }) => {
         const prefix = isRepliedMessage && withMentionPrefix ? "@" : "";
-        try {
-            const discordUsername = author.nick??author.displayName??author.username;
-            if (!isPk(message)) {
-                return <>{prefix}{discordUsername}</>;
-            }
+        const discordUsername = author.nick??author.displayName??author.username;
+        if ((message.channel && message.channel.isDM()) || !isPk(message))
+            return <>{prefix}{discordUsername}</>;
 
+        let color: string = "666666";
+        const pkAuthor = getAuthorOfMessage(message);
 
-            let color: string = "666666";
-            const pkAuthor = getAuthorOfMessage(message);
-
-            if (pkAuthor.member && settings.store.colorNames) {
-                color = pkAuthor.member.color??color;
-            }
-
-            const display = isOwnPkMessage(message) && settings.store.displayLocal !== "" ? settings.store.displayLocal : settings.store.displayOther;
-            const resultText = replaceTags(display, message, settings.store.data);
-
-            return <span style={{
-                color: `#${color}`,
-            }}>{resultText}</span>;
-        } catch {
-            return <>{prefix}{author?.nick}</>;
+        if (pkAuthor.member && settings.store.colorNames) {
+            color = pkAuthor.member.color??color;
         }
+
+        const display = isOwnPkMessage(message) && settings.store.displayLocal !== "" ? settings.store.displayLocal : settings.store.displayOther;
+        const resultText = replaceTags(display, message, settings.store.data);
+
+        return <span style={{
+            color: `#${color}`,
+        }}>{resultText}</span>;
     },
 
     async start() {
@@ -160,7 +165,7 @@ export default definePlugin({
         if (settings.store.data === "{}")
             await loadAuthors();
 
-        addButton("pk-edit", msg => {
+        addMessagePopoverButton("pk-edit", msg => {
             if (!msg) return null;
             if (!isOwnPkMessage(msg)) return null;
 
@@ -176,7 +181,7 @@ export default definePlugin({
             };
         });
 
-        addButton("pk-delete", msg => {
+        addMessagePopoverButton("pk-delete", msg => {
             if (!msg) return null;
             if (!isOwnPkMessage(msg)) return null;
 
@@ -193,20 +198,22 @@ export default definePlugin({
         });
 
         // Stolen directly from https://github.com/lynxize/vencord-plugins/blob/plugins/src/userplugins/pk4vc/index.tsx
-        this.preEditListener = addPreEditListener((channelId, messageId, messageObj) => {
+        this.preEditListener = addMessagePreEditListener((channelId, messageId, messageObj) => {
             if (isPk(MessageStore.getMessage(channelId, messageId))) {
                 const { guild_id } = ChannelStore.getChannel(channelId);
-                MessageActions.sendMessage(channelId, {
+                MessageActions.sendMessage(settings.store.editMessageChannel??channelId, {
                     reaction: false,
                     content: "pk;e https://discord.com/channels/" + guild_id + "/" + channelId + "/" + messageId + " " + messageObj.content
                 });
-                // return { cancel: true };
+                MessageActions.endEditMessage(channelId, messageId, "");
+                return { cancel: true };
             }
         });
     },
     stop() {
-        removeButton("pk-edit");
-        removeButton("pk-delete");
+        removeMessagePopoverButton("pk-edit");
+        removeMessagePopoverButton("pk-delete");
+        removeMessagePreEditListener(this.preEditListener);
     },
 });
 

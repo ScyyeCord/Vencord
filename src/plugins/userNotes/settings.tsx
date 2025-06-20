@@ -7,7 +7,7 @@
 import { definePluginSettings } from "@api/Settings";
 import { OptionType } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
-import { Alerts, Button, showToast } from "@webpack/common";
+import { Alerts, Button, showToast, Toasts } from "@webpack/common";
 
 import { clearUserNotes, transferUserNotes } from "./data";
 
@@ -53,12 +53,12 @@ export default definePluginSettings({
                 }).then(async r => {
                     r.json().then(resularUsersNotes => {
                         transferUserNotes(resularUsersNotes);
-                        showToast("Successfully transferred", 1);
+                        showToast("Successfully transferred", Toasts.Type.SUCCESS);
                     }).catch(() => {
-                        showToast("Unable to retrieve regular Discord notes", 2);
+                        showToast("Unable to retrieve regular Discord notes", Toasts.Type.FAILURE);
                     });
                 }).catch(() => {
-                    showToast("Unable to retrieve regular Discord notes", 2);
+                    showToast("Unable to retrieve regular Discord notes", Toasts.Type.FAILURE);
                 });
             }}>
                 Transfer existing regular notes from Discord
@@ -78,7 +78,7 @@ export default definePluginSettings({
                     cancelText: "Cancel",
                     onConfirm: () => {
                         clearUserNotes();
-                        showToast("Successfully cleared", 1);
+                        showToast("Successfully cleared", Toasts.Type.SUCCESS);
                     },
                 })}
             >

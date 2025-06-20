@@ -45,7 +45,7 @@ function badge(key: string, badge: ScyyeBadge, position: BadgePosition = BadgePo
     b.link = link;
     b.position = position;
 
-    Badges.addBadge(badge);
+    Badges.addProfileBadge(badge);
     registered.push(badge);
 }
 
@@ -81,7 +81,7 @@ export default definePlugin({
 
 function removeScyyeBadges() {
     registered.forEach(b => {
-        Badges.removeBadge(b);
+        Badges.removeProfileBadge(b);
     });
     registered = [];
 }
@@ -104,13 +104,6 @@ function addScyyeBadges() {
         shouldShow(userInfo: BadgeUserArgs): boolean {
             const user: User = UserStore.getUser(userInfo.userId);
             return (user.globalName??user.username).includes("』");
-        }
-    });
-    badge("card_creator", {
-        image: "https://cdn.discordapp.com/role-icons/945402769525858355/e95ef5364010c2ff97e3dcce45b9aa80.webp?size=24&quality=lossless",
-        shouldShow(userInfo: BadgeUserArgs): boolean {
-            return GuildMemberStore.isMember("844974450927730738", userInfo.userId)
-            && GuildMemberStore.getMember("844974450927730738", userInfo.userId).roles.includes("945402769525858355");
         }
     });
 }
