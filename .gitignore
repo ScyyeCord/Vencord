@@ -20,7 +20,11 @@ lerna-debug.log*
 *.tsbuildinfo
 
 ExtensionCache/
+<<<<<<< HEAD
 settings/
 
 *-ignore/
 *-ignore.*
+=======
+/settings
+>>>>>>> 76a60e07e9d299953461640b3409aff13045295d
