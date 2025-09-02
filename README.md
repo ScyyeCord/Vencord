@@ -1,3 +1,12 @@
+# ScyyeCord
+NOTE: There may be a few issues, any reports are welcome on this fork's repo, or by DMing me on Discord (@scyye). 
+
+DO NOT go to the Vencord server with issues regarding this fork
+
+There may be discrepancy in feature release, this is partly due to Vencord's hostility towards forks, I sync whenever I have a chance to.
+
+Below is the README for Vencord (Vendicated)
+
 # Vencord
 
 ![](https://img.shields.io/github/package-json/v/Vendicated/Vencord?style=for-the-badge&logo=github&logoColor=d3869b&label=&color=1d2021&labelColor=282828)
