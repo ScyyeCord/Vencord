@@ -85,7 +85,7 @@ const globNativesPlugin = {
                 for (const file of plugins) {
                     const fileName = file.name;
                     const nativePath = join(dirPath, fileName, "native.ts");
-                    const indexNativePath = join(dirPath, fileName, "native/index.ts");
+                    const indexNativePath = join(dirPath, fileName, "native/index.tsx");
 
                     if (!(await exists(nativePath)) && !(await exists(indexNativePath)))
                         continue;
@@ -112,7 +112,7 @@ const buildConfigs = ([
     // Discord Desktop main & renderer & preload
     {
         ...nodeCommonOpts,
-        entryPoints: ["src/main/index.ts"],
+        entryPoints: ["src/main/index.tsx"],
         outfile: "dist/patcher.js",
         footer: { js: "//# sourceURL=file:///VencordPatcher\n" + sourceMapFooter("patcher") },
         sourcemap,
@@ -162,7 +162,7 @@ const buildConfigs = ([
     // Vencord Desktop main & renderer & preload
     {
         ...nodeCommonOpts,
-        entryPoints: ["src/main/index.ts"],
+        entryPoints: ["src/main/index.tsx"],
         outfile: "dist/vencordDesktopMain.js",
         footer: { js: "//# sourceURL=file:///VencordDesktopMain\n" + sourceMapFooter("vencordDesktopMain") },
         sourcemap,

@@ -95,7 +95,7 @@ export async function resolvePluginName(base, dirent) {
     const content = dirent.isFile()
         ? await readFile(fullPath, "utf-8")
         : await (async () => {
-            for (const file of ["index.ts", "index.tsx"]) {
+            for (const file of ["index.tsx", "index.tsx"]) {
                 try {
                     return await readFile(join(fullPath, file), "utf-8");
                 } catch {
@@ -159,7 +159,7 @@ export const globPlugins = kind => ({
                 for (const file of files) {
                     const fileName = file.name;
                     if (fileName.startsWith("_") || fileName.startsWith(".")) continue;
-                    if (fileName === "index.ts") continue;
+                    if (fileName === "index.tsx") continue;
 
                     const target = getPluginTarget(fileName);
 
