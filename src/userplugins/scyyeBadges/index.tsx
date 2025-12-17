@@ -7,8 +7,8 @@
 import { BadgePosition, BadgeUserArgs, ProfileBadge } from "@api/Badges";
 import { Badges } from "@api/index";
 import definePlugin from "@utils/types";
+import { User } from "@vencord/discord-types";
 import { GuildMemberStore, GuildStore, UserStore } from "@webpack/common";
-import { User } from "discord-types/general/index.js";
 import React from "react";
 
 let registered: ProfileBadge[] = [];
@@ -41,7 +41,7 @@ function badge(key: string, badge: ScyyeBadge, position: BadgePosition = BadgePo
 
     b.key = key;
     b.image = badge.image;
-    b.description = format(key);
+    b.description = "Unknown badge";
     b.link = link;
     b.position = position;
 
@@ -93,8 +93,14 @@ function addScyyeBadges() {
             return userInfo.userId==="553652308295155723";
         }
     });
+    badge("the_love_of_my_life", {
+        image: UserStore.getUser("1236108944754343946").getAvatarURL(null, null, true),
+        shouldShow(userInfo: BadgeUserArgs): boolean {
+            return userInfo.userId==="1236108944754343946";
+        }
+    });
     badge("in_my_DM_server", {
-        image: GuildStore.getGuild("1116093904266211358").getIconURL(500, true),
+        image: GuildStore.getGuild("1116093904266211358").icon ?? "",
         shouldShow(userInfo: BadgeUserArgs): boolean {
             return GuildMemberStore.isMember("1116093904266211358", userInfo.userId);
         }

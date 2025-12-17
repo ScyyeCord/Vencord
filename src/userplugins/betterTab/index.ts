@@ -30,12 +30,8 @@ export default definePlugin({
                 // Prevent the default Tab key behavior
                 event.preventDefault();
 
-                // If the active element is an input or textarea, allow the default behavior
-                if (document.activeElement == null)
-                    return;
-                if (["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) {
-                    event.stopImmediatePropagation();
-                }
+                emulateCtrlK(document.body);
+                event.stopImmediatePropagation();
             }
         });
     },
@@ -50,3 +46,30 @@ export default definePlugin({
         });
     },
 });
+
+function emulateCtrlK(targetElement: Element = document.body): void {
+    // Check if the element is valid before dispatching events
+    if (!targetElement) {
+        console.error("The specified target element is invalid.");
+        return;
+    }
+
+    // Define the common properties for the keyboard events.
+    const eventOptions: KeyboardEventInit = {
+        key: "k",
+        code: "KeyK",
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+    };
+
+    // Step 1: Dispatch the keydown event for the 'k' key with Ctrl held down.
+    // This simulates the actual key being pressed while Ctrl is active.
+    const keydownEvent = new KeyboardEvent("keydown", eventOptions);
+    targetElement.dispatchEvent(keydownEvent);
+
+    // Step 2: Dispatch the keyup event for the 'k' key.
+    // This signifies the release of the 'k' key.
+    const keyupEvent = new KeyboardEvent("keyup", eventOptions);
+    targetElement.dispatchEvent(keyupEvent);
+}

@@ -187,7 +187,7 @@ async function getEntryPoint(dir: string, dirent: Dirent) {
     const base = join(dir, dirent.name);
     if (!dirent.isDirectory()) return base;
 
-    for (const name of ["index.ts", "index.tsx"]) {
+    for (const name of ["index.tsx", "index.tsx"]) {
         const full = join(base, name);
         try {
             await access(full);
@@ -199,7 +199,7 @@ async function getEntryPoint(dir: string, dirent: Dirent) {
 }
 
 function isPluginFile({ name }: { name: string; }) {
-    if (name === "index.ts") return false;
+    if (name === "index.tsx") return false;
     return !name.startsWith("_") && !name.startsWith(".");
 }
 

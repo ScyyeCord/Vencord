@@ -176,7 +176,8 @@ function PluginSettings() {
         return (
             plugin.name.toLowerCase().includes(search) ||
             plugin.description.toLowerCase().includes(search) ||
-            plugin.tags?.some(t => t.toLowerCase().includes(search))
+            plugin.tags?.some(t => t.toLowerCase().includes(search)) ||
+            plugin.authors.some(t => t.name.toLowerCase().includes(search) || t.id.toString().includes(search))
         );
     };
 
@@ -260,7 +261,7 @@ function PluginSettings() {
                                 { label: "Show All", value: SearchStatus.ALL, default: true },
                                 { label: "Show Enabled", value: SearchStatus.ENABLED },
                                 { label: "Show Disabled", value: SearchStatus.DISABLED },
-                                { label: "Show New", value: SearchStatus.NEW }
+                                { label: "Show New", value: SearchStatus.NEW },
                             ]}
                             serialize={String}
                             select={onStatusChange}
